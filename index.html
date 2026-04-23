@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AAA Mouse Trail Lab — 50 Signature Effects</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <canvas id="fx"></canvas>
+
+  <header class="hud top">
+    <div class="logo">
+      <span class="logo-mark">▲△▲</span>
+      <span class="logo-text">TRIPLE&nbsp;A&nbsp;STUDIO</span>
+      <span class="logo-sub">MOUSE TRAIL LAB</span>
+    </div>
+    <div class="now-playing">
+      <span class="np-label">ACTIVE EFFECT</span>
+      <span id="effect-name" class="np-name">—</span>
+    </div>
+    <div class="hud-actions">
+      <button id="btn-clear" class="ghost">CLEAR</button>
+      <button id="btn-toggle" class="ghost">HIDE UI</button>
+    </div>
+  </header>
+
+  <aside id="panel" class="panel">
+    <div class="panel-header">
+      <h2>SIGNATURE EFFECTS</h2>
+      <p class="muted">375 cursor trails · 15 categories · 25 each. Scroll wheel to cycle.</p>
+      <input id="search" type="text" placeholder="Filter effects…" />
+    </div>
+    <div id="categories" class="categories"></div>
+  </aside>
+
+  <footer class="hud bottom">
+    <span class="fps">FPS <b id="fps">60</b></span>
+    <span class="count">PARTICLES <b id="pcount">0</b></span>
+    <span class="hint">MOVE CURSOR · SCROLL WHEEL TO CYCLE · SPACE TO CLEAR</span>
+  </footer>
+
+  <!-- Engine -->
+  <script src="js/engine.js"></script>
+  <script src="js/effects/_helpers.js"></script>
+  <!-- Effect banks -->
+  <script src="js/effects/fire.js"></script>
+  <script src="js/effects/tech.js"></script>
+  <script src="js/effects/magic.js"></script>
+  <script src="js/effects/nature.js"></script>
+  <script src="js/effects/cosmic.js"></script>
+  <script src="js/effects/weapons.js"></script>
+  <script src="js/effects/liquid.js"></script>
+  <script src="js/effects/weather.js"></script>
+  <script src="js/effects/horror.js"></script>
+  <script src="js/effects/music.js"></script>
+  <script src="js/effects/geometry.js"></script>
+  <script src="js/effects/glitch.js"></script>
+  <script src="js/effects/alchemy.js"></script>
+  <script src="js/effects/arcade.js"></script>
+  <script src="js/effects/royal.js"></script>
+  <!-- UI -->
+  <script src="js/main.js"></script>
+</body>
+</html>
