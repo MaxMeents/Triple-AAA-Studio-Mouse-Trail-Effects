@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+build/
+*.exe
+*.msi
+*.blockmap
+*.yml.blockmap
+builder-debug.yml
+builder-effective-config.yaml
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Env / local settings
+.env
+.env.local
+.env.*.local
+
+# Electron runtime caches
+.cache/
+.electron-gyp/
+
+# Lockfiles are kept (package-lock.json committed for reproducible builds)

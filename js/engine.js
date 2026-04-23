@@ -5,7 +5,11 @@
 (function(){
   const canvas = document.getElementById('fx');
   const ctx = canvas.getContext('2d');
-  let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  // Overlay runs fullscreen transparent on Windows; cap DPR to 1 in that mode
+  // because transparent windows use a slower compositing path and fill-rate
+  // cost scales with DPR^2 on a whole-screen canvas.
+  let W = 0, H = 0,
+      DPR = window.__transparent ? 1 : Math.min(window.devicePixelRatio || 1, 2);
 
   function resize(){
     W = canvas.width  = Math.floor(innerWidth  * DPR);
@@ -182,11 +186,24 @@
   function tick(now){
     const dt = Math.min(33, now - last); last = now;
 
+    // Paused? Skip the expensive fullscreen fade-rect entirely.
+    if(window.__paused){
+      requestAnimationFrame(tick);
+      return;
+    }
+
     // Background fade per-effect controlled trail
     const fade = (current && current.fade != null) ? current.fade : 0.22;
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = `rgba(5,6,13,${fade})`;
+    if(window.__transparent){
+      // Fade existing pixels toward full transparency so the desktop shows through.
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = `rgba(0,0,0,${fade})`;
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = `rgba(5,6,13,${fade})`;
+    }
     ctx.fillRect(0,0,innerWidth,innerHeight);
+    ctx.globalCompositeOperation = 'source-over';
 
     if(current && current.onFrame) current.onFrame(dt);
 

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<style>
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    background: transparent;
+    overflow: hidden;
+    cursor: none;
+  }
+  canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%; height: 100%;
+    background: transparent;
+    pointer-events: none;
+    display: block;
+  }
+  canvas.hidden { display: none; }
+</style>
+</head>
+<body>
+  <!-- Trail engine GPU canvas (PixiJS WebGL) -->
+  <canvas id="fxGpu"></canvas>
+  <!-- Trail engine stroke overlay (Canvas 2D, used by a few effects' onFrame) -->
+  <canvas id="fx"></canvas>
+  <!-- Click engine canvas (PixiJS WebGL) -->
+  <canvas id="fxCanvas"></canvas>
+
+  <script>window.__transparent = true;</script>
+
+  <!-- PixiJS must load before either GPU engine -->
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.0/dist/pixi.min.js"></script>
+
+  <!-- Trail engine + effects -->
+  <script src="../js/engine_gpu.js"></script>
+  <script src="../js/effects/_helpers.js"></script>
+  <script src="../js/effects/fire.js"></script>
+  <script src="../js/effects/tech.js"></script>
+  <script src="../js/effects/magic.js"></script>
+  <script src="../js/effects/nature.js"></script>
+  <script src="../js/effects/cosmic.js"></script>
+  <script src="../js/effects/weapons.js"></script>
+  <script src="../js/effects/liquid.js"></script>
+  <script src="../js/effects/weather.js"></script>
+  <script src="../js/effects/horror.js"></script>
+  <script src="../js/effects/music.js"></script>
+  <script src="../js/effects/geometry.js"></script>
+  <script src="../js/effects/glitch.js"></script>
+  <script src="../js/effects/alchemy.js"></script>
+  <script src="../js/effects/arcade.js"></script>
+  <script src="../js/effects/royal.js"></script>
+
+  <!-- Click engine (PixiJS already loaded above) -->
+  <script src="../Triple AAA Mouse click Effects/js/particle.js"></script>
+  <script src="../Triple AAA Mouse click Effects/js/effects.js"></script>
+
+  <script>
+  (function(){
+    const fxTrail = document.getElementById('fx');
+    const fxClick = document.getElementById('fxCanvas');
+    const clickEngine = new FX.Engine(fxClick);
+    clickEngine.app.ticker.stop(); // start paused; enable below
+
+    let state = { trailEnabled: true, clickEnabled: true, trailId: null, clickId: null };
+    let activeClick = null;
+    let activeTrailId = null;
+
+    function applyState() {
+      // Trail canvas — hide when disabled and pause its rAF loop to save CPU.
+      fxTrail.classList.toggle('hidden', !state.trailEnabled);
+      window.__paused = !state.trailEnabled;
+      if (!state.trailEnabled) Engine.clear();
+
+      // Click canvas — stop the PIXI ticker when disabled (saves GPU).
+      fxClick.classList.toggle('hidden', !state.clickEnabled);
+      if (state.clickEnabled) clickEngine.app.ticker.start();
+      else                    { clickEngine.app.ticker.stop(); clickEngine.clear(); }
+
+      // Effect selection
+      if (state.trailId && state.trailId !== activeTrailId) {
+        activeTrailId = state.trailId;
+        Engine.setEffect(state.trailId);
+      }
+      if (state.clickId) {
+        const eff = FX_EFFECTS.find(e => String(e.id) === String(state.clickId));
+        if (eff) activeClick = eff;
+      }
+    }
+
+    // Report effect list (both types) to main for the tray menu.
+    const trailList = Engine.effects.map(e => ({
+      type: 'trail', id: e.id, name: e.name, category: e.category || 'Uncategorized'
+    }));
+    const clickList = FX_EFFECTS.map(e => ({
+      type: 'click', id: String(e.id), name: e.name, category: e.category || 'Uncategorized'
+    }));
+    window.overlayBridge.reportEffects({ trail: trailList, click: clickList });
+
+    window.overlayBridge.onState((s) => {
+      if (!s) return;
+      state = Object.assign(state, s);
+      applyState();
+    });
+
+    window.overlayBridge.onClear(() => {
+      Engine.clear();
+      clickEngine.clear();
+    });
+
+    window.overlayBridge.onClickAt((pt) => {
+      if (!state.clickEnabled) return;
+      const eff = activeClick || FX_EFFECTS[0];
+      try { eff.run(clickEngine, pt.x, pt.y); } catch (err) { console.error(err); }
+    });
+  })();
+  </script>
+</body>
+</html>

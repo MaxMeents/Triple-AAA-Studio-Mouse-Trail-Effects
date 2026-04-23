@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Triple-A Mouse Click Effects — 50 Cinematic FX</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+    <canvas id="fxCanvas"></canvas>
+
+    <header class="topbar">
+        <div class="brand">
+            <span class="logo">◈</span>
+            <div class="title">
+                <h1>TRIPLE-A FX FORGE</h1>
+                <p>Cinematic Mouse Click Effects — Pick one, then click anywhere</p>
+            </div>
+        </div>
+        <div class="hud">
+            <div class="stat"><label>Active Effect</label><span id="activeName">Shockwave Pulse</span></div>
+            <div class="stat"><label>Particles</label><span id="particleCount">0</span></div>
+            <div class="stat"><label>FPS</label><span id="fps">60</span></div>
+            <button id="togglePanel" class="ghost-btn" title="Hide / Show panel">⮜</button>
+        </div>
+    </header>
+
+    <aside id="panel" class="panel">
+        <div class="panel-header">
+            <input id="search" type="text" placeholder="Search effects..." />
+            <button id="clearBtn" class="ghost-btn" title="Clear canvas">CLEAR</button>
+        </div>
+        <div id="buttonGrid" class="button-grid"></div>
+        <footer class="panel-footer">
+            <span>Click the canvas to unleash the effect.</span>
+        </footer>
+    </aside>
+
+    <div id="hint" class="hint">Click anywhere on the canvas →</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.0/dist/pixi.min.js"></script>
+    <script src="js/particle.js"></script>
+    <script src="js/effects.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
