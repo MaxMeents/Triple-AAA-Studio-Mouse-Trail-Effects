@@ -27,8 +27,26 @@ const settings = {
   trailEnabled: true,
   clickEnabled: true,
   trailId:      null,   // selected trail effect id (string)
-  clickId:      null    // selected click effect id (string)
+  clickId:      null,   // selected click effect id (string)
+  // Per-effect tuning keyed by "<type>:<id>", e.g. { intensity, size, speed, life, alpha }
+  customizations: {}
 };
+
+let customizeWin = null;
+let customizeTarget = null; // { type, id, name }
+
+function defaultCustom() {
+  return { intensity: 1, size: 1, speed: 1, life: 1, alpha: 1 };
+}
+function customKey(type, id) { return `${type}:${id}`; }
+function getCustomization(type, id) {
+  const saved = (settings.customizations || {})[customKey(type, id)] || {};
+  return Object.assign(defaultCustom(), saved);
+}
+function isDefaultCustom(c) {
+  const d = defaultCustom();
+  return Object.keys(d).every(k => Math.abs((c[k] ?? d[k]) - d[k]) < 1e-6);
+}
 
 function settingsPath() { return path.join(app.getPath('userData'), 'settings.json'); }
 
@@ -132,7 +150,9 @@ function currentState() {
     trailEnabled: !!settings.trailEnabled,
     clickEnabled: !!settings.clickEnabled,
     trailId:      settings.trailId,
-    clickId:      settings.clickId
+    clickId:      settings.clickId,
+    trailCustom:  getCustomization('trail', settings.trailId),
+    clickCustom:  getCustomization('click', settings.clickId)
   };
 }
 
@@ -158,6 +178,78 @@ function setEnabled(type, enabled) {
   else                  settings.trailEnabled = !!enabled;
   applyState();
 }
+
+// ---------------------------------------------------------------- customize
+function customizeWindowPayload() {
+  if (!customizeTarget) return null;
+  return {
+    type:     customizeTarget.type,
+    id:       customizeTarget.id,
+    name:     customizeTarget.name,
+    values:   getCustomization(customizeTarget.type, customizeTarget.id),
+    defaults: defaultCustom()
+  };
+}
+
+function openCustomize(type) {
+  const id = type === 'click' ? settings.clickId : settings.trailId;
+  if (!id) return;
+  const eff = findEffect(type, id);
+  customizeTarget = { type, id, name: eff ? eff.name : String(id) };
+
+  if (customizeWin && !customizeWin.isDestroyed()) {
+    customizeWin.show(); customizeWin.focus();
+    customizeWin.webContents.send('customize:data', customizeWindowPayload());
+    return;
+  }
+  customizeWin = new BrowserWindow({
+    width: 440, height: 540,
+    title: 'Customize Effect',
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  customizeWin.setMenuBarVisibility(false);
+  customizeWin.loadFile(path.join(__dirname, 'customize.html'));
+  customizeWin.on('closed', () => { customizeWin = null; customizeTarget = null; });
+}
+
+function updateCustomization(type, id, values) {
+  const key = customKey(type, id);
+  const merged = Object.assign(getCustomization(type, id), values || {});
+  if (isDefaultCustom(merged)) delete settings.customizations[key];
+  else                         settings.customizations[key] = merged;
+  // Live preview: push new state to overlays immediately.
+  applyState();
+}
+
+function resetCustomization(type, id) {
+  delete settings.customizations[customKey(type, id)];
+  applyState();
+  if (customizeWin && !customizeWin.isDestroyed()) {
+    customizeWin.webContents.send('customize:data', customizeWindowPayload());
+  }
+}
+
+ipcMain.on('customize:request', (evt) => {
+  evt.sender.send('customize:data', customizeWindowPayload());
+});
+ipcMain.on('customize:set', (_e, payload) => {
+  if (!payload || !payload.type || payload.id == null) return;
+  updateCustomization(payload.type, payload.id, payload.values || {});
+});
+ipcMain.on('customize:reset', (_e, payload) => {
+  if (!payload) return;
+  resetCustomization(payload.type, payload.id);
+});
 
 // ---------------------------------------------------------------- tray menu
 function buildCategorySubmenu(list, type) {
@@ -219,6 +311,17 @@ function rebuildTray() {
         : [{ label: '(loading…)', enabled: false }]
     },
     { type: 'separator' },
+    {
+      label: 'Customize Trail Effect…',
+      enabled: !!settings.trailId,
+      click: () => openCustomize('trail')
+    },
+    {
+      label: 'Customize Click Effect…',
+      enabled: !!settings.clickId,
+      click: () => openCustomize('click')
+    },
+    { type: 'separator' },
     { label: 'Open Effect Browser…', click: openBrowserWindow },
     { label: 'Clear Particles',      click: () => broadcast('overlay:clear') },
     { label: 'Bring to Current Desktop  (Ctrl+Alt+M)', click: bringToCurrentDesktop },
@@ -230,7 +333,7 @@ function rebuildTray() {
       }
     },
     { type: 'separator' },
-    { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } }
+    { label: 'Quit', click: () => quitApp() }
   ];
   tray.setContextMenu(Menu.buildFromTemplate(template));
   tray.setToolTip(summaryLabel());
@@ -392,6 +495,24 @@ app.whenReady().then(() => {
 
   setTimeout(startWatcher, 800);
 });
+
+function quitApp() {
+  app.isQuitting = true;
+  // Kill watcher subprocess first (else PS may delay shutdown).
+  if (watcher) { try { watcher.kill(); } catch (_) {} watcher = null; }
+  clearTimeout(watcherRetry);
+  globalShortcut.unregisterAll();
+  // Overlay windows are created with closable:false and focusable:false,
+  // so a normal close() is refused. Destroy them directly.
+  for (const w of overlays) {
+    if (!w.isDestroyed()) { try { w.destroy(); } catch (_) {} }
+  }
+  if (browserWin && !browserWin.isDestroyed()) { try { browserWin.destroy(); } catch (_) {} }
+  if (customizeWin && !customizeWin.isDestroyed()) { try { customizeWin.destroy(); } catch (_) {} }
+  if (tray && !tray.isDestroyed()) { try { tray.destroy(); } catch (_) {} }
+  // Force-exit in case something still holds the loop open.
+  setTimeout(() => app.exit(0), 150);
+}
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();

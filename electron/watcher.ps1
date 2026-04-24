@@ -50,7 +50,7 @@ while ($true) {
     }
     $clickPrev = $down
 
-    # --- Virtual-desktop polling (~500 ms cadence) ---
+    # --- Virtual-desktop polling (~1 s cadence) ---
     $vdTick++
     if ($vdTick -ge 40) {
         $vdTick = 0
@@ -68,5 +68,8 @@ while ($true) {
         } catch { }
     }
 
-    Start-Sleep -Milliseconds 12
+    # 25 ms cadence: still catches clicks reliably, but gives the CPU enough
+    # idle time to enter deep sleep states. Running at 12 ms overnight
+    # prevented C-state entry and caused thermal buildup.
+    Start-Sleep -Milliseconds 25
 }

@@ -36,6 +36,33 @@
 
   <!-- Trail engine + effects -->
   <script src="../js/engine_gpu.js"></script>
+
+  <!-- Install the trail-spawn customization wrapper BEFORE the effect files
+       run, because each effect file destructures `spawn` at load time
+       (`const { spawn } = Engine;`) — so swapping Engine.spawn afterwards
+       would be invisible to them. -->
+  <script>
+    window.__trailCustom = { intensity:1, size:1, speed:1, life:1, alpha:1 };
+    (function(){
+      const orig = Engine.spawn;
+      Engine.spawn = function(p){
+        const c = window.__trailCustom;
+        if (c.intensity < 1 && Math.random() > c.intensity) return;
+        if (p.size  != null) p.size  *= c.size;
+        if (p.vx    != null) p.vx    *= c.speed;
+        if (p.vy    != null) p.vy    *= c.speed;
+        if (p.life  != null) p.life  *= c.life;
+        if (p.alpha != null) p.alpha *= c.alpha;
+        orig.call(this, p);
+        let extra = c.intensity - 1;
+        while (extra > 0) {
+          if (extra >= 1 || Math.random() < extra) orig.call(this, Object.assign({}, p));
+          extra -= 1;
+        }
+      };
+    })();
+  </script>
+
   <script src="../js/effects/_helpers.js"></script>
   <script src="../js/effects/fire.js"></script>
   <script src="../js/effects/tech.js"></script>
@@ -64,9 +91,38 @@
     const clickEngine = new FX.Engine(fxClick);
     clickEngine.app.ticker.stop(); // start paused; enable below
 
-    let state = { trailEnabled: true, clickEnabled: true, trailId: null, clickId: null };
+    let state = {
+      trailEnabled: true, clickEnabled: true, trailId: null, clickId: null,
+      trailCustom: { intensity:1, size:1, speed:1, life:1, alpha:1 },
+      clickCustom: { intensity:1, size:1, speed:1, life:1, alpha:1 }
+    };
     let activeClick = null;
     let activeTrailId = null;
+
+    // The trail spawn wrapper was already installed before the effect files
+    // loaded — we just need to feed it the current values via window.__trailCustom.
+    // The click engine uses live method dispatch (eng.spawn(...)) so wrapping
+    // it here — after the click engine exists — is safe.
+    function applyMul(p, c) {
+      if (p.size  != null) p.size  *= c.size;
+      if (p.vx    != null) p.vx    *= c.speed;
+      if (p.vy    != null) p.vy    *= c.speed;
+      if (p.life  != null) p.life  *= c.life;
+      if (p.alpha != null) p.alpha *= c.alpha;
+    }
+    const origClickSpawn = clickEngine.spawn.bind(clickEngine);
+    clickEngine.spawn = function(p) {
+      const c = state.clickCustom;
+      if (c.intensity < 1 && Math.random() > c.intensity) return null;
+      applyMul(p, c);
+      const ret = origClickSpawn(p);
+      let extra = c.intensity - 1;
+      while (extra > 0) {
+        if (extra >= 1 || Math.random() < extra) origClickSpawn(Object.assign({}, p));
+        extra -= 1;
+      }
+      return ret;
+    };
 
     function applyState() {
       // Trail canvas — hide when disabled and pause its rAF loop to save CPU.
@@ -102,6 +158,9 @@
     window.overlayBridge.onState((s) => {
       if (!s) return;
       state = Object.assign(state, s);
+      // Keep the pre-effects trail wrapper's shared state in sync with
+      // whatever main broadcast for the currently-selected trail effect.
+      if (state.trailCustom) window.__trailCustom = state.trailCustom;
       applyState();
     });
 

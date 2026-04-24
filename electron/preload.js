@@ -10,5 +10,11 @@ contextBridge.exposeInMainWorld('overlayBridge', {
   // browser renderer
   requestEffects: () => ipcRenderer.send('browser:request-effects'),
   onEffectList:   (cb) => ipcRenderer.on('browser:effect-list', (_e, lists) => cb(lists)),
-  selectEffect:   (payload) => ipcRenderer.send('browser:select', payload)
+  selectEffect:   (payload) => ipcRenderer.send('browser:select', payload),
+
+  // customize renderer
+  customizeRequest: ()         => ipcRenderer.send('customize:request'),
+  customizeSet:     (payload)  => ipcRenderer.send('customize:set', payload),
+  customizeReset:   (payload)  => ipcRenderer.send('customize:reset', payload),
+  onCustomizeData:  (cb)       => ipcRenderer.on('customize:data', (_e, d) => cb(d))
 });

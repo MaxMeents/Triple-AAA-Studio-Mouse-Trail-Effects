@@ -31,11 +31,17 @@
                (Math.round(f(8) * 255) << 8)  |
                 Math.round(f(4) * 255);
     }
+    // Bounded LRU-ish cache: effects pass randomized hsla strings, so an
+    // unbounded map grows forever during long-running sessions.
     const _colorCache = new Map();
+    const _COLOR_CACHE_MAX = 512;
     function colorToInt(c) {
         if (typeof c === 'number') return c;
         const cached = _colorCache.get(c);
         if (cached !== undefined) return cached;
+        if (_colorCache.size >= _COLOR_CACHE_MAX) {
+            _colorCache.delete(_colorCache.keys().next().value);
+        }
         let v = 0xffffff;
         if (typeof c === 'string') {
             if (c[0] === '#') {
@@ -247,7 +253,9 @@
             window.addEventListener('resize', this._resizeBound);
             this._resize();
 
-            this.app.ticker.maxFPS = 0; // no cap
+            // Cap ticker to 60fps — otherwise the GPU renders as fast as it
+            // can (often 200+ fps), which pegs the card during long sessions.
+            this.app.ticker.maxFPS = 60;
             this.app.ticker.add(() => this._tick());
         }
 

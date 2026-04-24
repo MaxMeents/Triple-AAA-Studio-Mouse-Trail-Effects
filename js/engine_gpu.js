@@ -31,6 +31,10 @@
     clearBeforeRender: false,             // preserve frame for fade-trail
     preserveDrawingBuffer: !window.__transparent
   });
+  // Cap the render rate to the monitor refresh — without this the ticker
+  // runs as fast as the GPU allows (200–500 fps), which pegs the GPU and
+  // throttles the system during long sessions.
+  app.ticker.maxFPS = 60;
 
   const stage         = app.stage;
   const fadeRect      = new PIXI.Graphics(); stage.addChild(fadeRect);
@@ -94,12 +98,20 @@
   };
 
   // -------- color parsing (hex + hsla) → { int, alpha } --------
+  // The cache is bounded because effects pass randomized hsla strings, which
+  // would otherwise grow the map unboundedly (every particle = a new key).
   const colorCache = new Map();
+  const COLOR_CACHE_MAX = 512;
   function parseColor(c){
     if(typeof c === 'number') return { int: c, alpha: 1 };
     if(!c) return { int: 0xffffff, alpha: 1 };
     const hit = colorCache.get(c);
     if(hit) return hit;
+    if(colorCache.size >= COLOR_CACHE_MAX){
+      // Drop the oldest entry (Map preserves insertion order).
+      const firstKey = colorCache.keys().next().value;
+      colorCache.delete(firstKey);
+    }
     let out = { int: 0xffffff, alpha: 1 };
     if(c[0] === '#'){
       const hex = c.slice(1);
