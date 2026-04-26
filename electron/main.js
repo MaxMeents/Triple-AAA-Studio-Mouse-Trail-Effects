@@ -26,7 +26,11 @@ let clickEffects = []; // [{type:'click', id, name, category}]
 const settings = {
   trailEnabled: true,
   clickEnabled: true,
-  trailId:      null,   // selected trail effect id (string)
+  trailId:      null,   // primary trail effect id (string)
+  trailId2:     null,   // 2nd trail effect id (string)
+  trailId3:     null,   // 3rd trail effect id (string)
+  trailEnabled2: false, // 2nd trail slot on/off
+  trailEnabled3: false, // 3rd trail slot on/off
   clickId:      null,   // selected click effect id (string)
   // Per-effect tuning keyed by "<type>:<id>", e.g. { intensity, size, speed, life, alpha }
   customizations: {}
@@ -147,12 +151,16 @@ function findEffect(type, id) {
 
 function currentState() {
   return {
-    trailEnabled: !!settings.trailEnabled,
-    clickEnabled: !!settings.clickEnabled,
-    trailId:      settings.trailId,
-    clickId:      settings.clickId,
-    trailCustom:  getCustomization('trail', settings.trailId),
-    clickCustom:  getCustomization('click', settings.clickId)
+    trailEnabled:  !!settings.trailEnabled,
+    clickEnabled:  !!settings.clickEnabled,
+    trailId:       settings.trailId,
+    trailId2:      settings.trailId2,
+    trailId3:      settings.trailId3,
+    trailEnabled2: !!settings.trailEnabled2,
+    trailEnabled3: !!settings.trailEnabled3,
+    clickId:       settings.clickId,
+    trailCustom:   getCustomization('trail', settings.trailId),
+    clickCustom:   getCustomization('click', settings.clickId)
   };
 }
 
@@ -162,20 +170,35 @@ function applyState() {
   saveSettings();
 }
 
-function selectEffect(type, id) {
+function selectEffect(type, id, slot) {
   if (type === 'click') {
     settings.clickId = String(id);
     settings.clickEnabled = true;  // choosing an effect implies "on"
   } else {
-    settings.trailId = String(id);
-    settings.trailEnabled = true;
+    slot = slot|0;
+    if (slot === 1) {
+      settings.trailId2 = String(id);
+      settings.trailEnabled2 = true;
+    } else if (slot === 2) {
+      settings.trailId3 = String(id);
+      settings.trailEnabled3 = true;
+    } else {
+      settings.trailId = String(id);
+      settings.trailEnabled = true;
+    }
   }
   applyState();
 }
 
-function setEnabled(type, enabled) {
-  if (type === 'click') settings.clickEnabled = !!enabled;
-  else                  settings.trailEnabled = !!enabled;
+function setEnabled(type, enabled, slot) {
+  if (type === 'click') {
+    settings.clickEnabled = !!enabled;
+  } else {
+    slot = slot|0;
+    if      (slot === 1) settings.trailEnabled2 = !!enabled;
+    else if (slot === 2) settings.trailEnabled3 = !!enabled;
+    else                 settings.trailEnabled  = !!enabled;
+  }
   applyState();
 }
 
@@ -252,30 +275,39 @@ ipcMain.on('customize:reset', (_e, payload) => {
 });
 
 // ---------------------------------------------------------------- tray menu
-function buildCategorySubmenu(list, type) {
+function buildCategorySubmenu(list, type, slot) {
+  slot = slot|0;
   const groups = {};
   for (const eff of list) {
     const cat = eff.category || 'Uncategorized';
     (groups[cat] ||= []).push(eff);
   }
-  const selectedId = type === 'click' ? settings.clickId : settings.trailId;
+  let selectedId;
+  if (type === 'click')      selectedId = settings.clickId;
+  else if (slot === 1)       selectedId = settings.trailId2;
+  else if (slot === 2)       selectedId = settings.trailId3;
+  else                       selectedId = settings.trailId;
   return Object.keys(groups).sort().map(cat => ({
     label: cat,
     submenu: groups[cat].map(eff => ({
       label: eff.name,
       type: 'radio',
       checked: String(eff.id) === String(selectedId),
-      click: () => selectEffect(type, eff.id)
+      click: () => selectEffect(type, eff.id, slot)
     }))
   }));
 }
 
 function summaryLabel() {
-  const t = findEffect('trail', settings.trailId);
-  const c = findEffect('click', settings.clickId);
-  const ts = `Trail: ${settings.trailEnabled ? (t ? t.name : '—') : 'off'}`;
-  const cs = `Click: ${settings.clickEnabled ? (c ? c.name : '—') : 'off'}`;
-  return `${ts}   |   ${cs}`;
+  const t  = findEffect('trail', settings.trailId);
+  const t2 = findEffect('trail', settings.trailId2);
+  const t3 = findEffect('trail', settings.trailId3);
+  const c  = findEffect('click', settings.clickId);
+  const ts  = `Trail: ${settings.trailEnabled ? (t ? t.name : '—') : 'off'}`;
+  const ts2 = `2nd: ${settings.trailEnabled2 ? (t2 ? t2.name : '—') : 'off'}`;
+  const ts3 = `3rd: ${settings.trailEnabled3 ? (t3 ? t3.name : '—') : 'off'}`;
+  const cs  = `Click: ${settings.clickEnabled ? (c ? c.name : '—') : 'off'}`;
+  return `${ts} | ${ts2} | ${ts3} | ${cs}`;
 }
 
 function rebuildTray() {
@@ -289,7 +321,19 @@ function rebuildTray() {
       label: 'Enable Trail Effects',
       type: 'checkbox',
       checked: !!settings.trailEnabled,
-      click: (mi) => setEnabled('trail', mi.checked)
+      click: (mi) => setEnabled('trail', mi.checked, 0)
+    },
+    {
+      label: 'Enable 2nd Trail',
+      type: 'checkbox',
+      checked: !!settings.trailEnabled2,
+      click: (mi) => setEnabled('trail', mi.checked, 1)
+    },
+    {
+      label: 'Enable 3rd Trail',
+      type: 'checkbox',
+      checked: !!settings.trailEnabled3,
+      click: (mi) => setEnabled('trail', mi.checked, 2)
     },
     {
       label: 'Enable Click Effects',
@@ -301,13 +345,25 @@ function rebuildTray() {
     {
       label: 'Trail Effects',
       submenu: trailEffects.length
-        ? buildCategorySubmenu(trailEffects, 'trail')
+        ? buildCategorySubmenu(trailEffects, 'trail', 0)
+        : [{ label: '(loading…)', enabled: false }]
+    },
+    {
+      label: '2nd Trail Effects',
+      submenu: trailEffects.length
+        ? buildCategorySubmenu(trailEffects, 'trail', 1)
+        : [{ label: '(loading…)', enabled: false }]
+    },
+    {
+      label: '3rd Trail Effects',
+      submenu: trailEffects.length
+        ? buildCategorySubmenu(trailEffects, 'trail', 2)
         : [{ label: '(loading…)', enabled: false }]
     },
     {
       label: 'Click Effects',
       submenu: clickEffects.length
-        ? buildCategorySubmenu(clickEffects, 'click')
+        ? buildCategorySubmenu(clickEffects, 'click', 0)
         : [{ label: '(loading…)', enabled: false }]
     },
     { type: 'separator' },
@@ -346,8 +402,10 @@ ipcMain.on('overlay:effects-ready', (_evt, lists) => {
   clickEffects = lists.click || [];
 
   // Default selections on first run.
-  if (!settings.trailId && trailEffects.length) settings.trailId = String(trailEffects[0].id);
-  if (!settings.clickId && clickEffects.length) settings.clickId = String(clickEffects[0].id);
+  if (!settings.trailId  && trailEffects.length) settings.trailId  = String(trailEffects[0].id);
+  if (!settings.trailId2 && trailEffects.length) settings.trailId2 = String(trailEffects[Math.min(1, trailEffects.length-1)].id);
+  if (!settings.trailId3 && trailEffects.length) settings.trailId3 = String(trailEffects[Math.min(2, trailEffects.length-1)].id);
+  if (!settings.clickId  && clickEffects.length) settings.clickId  = String(clickEffects[0].id);
 
   applyState();
   pushEffectListToBrowser();

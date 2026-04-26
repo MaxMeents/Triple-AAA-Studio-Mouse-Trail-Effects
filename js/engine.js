@@ -33,11 +33,20 @@
     mouse.dy = mouse.y - mouse.py;
     mouse.speed = Math.hypot(mouse.dx, mouse.dy);
     mouse.angle = Math.atan2(mouse.dy, mouse.dx);
-    if(current && current.onMove) current.onMove(mouse);
+    for(let s=0;s<slots.length;s++){
+      const eff = slots[s];
+      if(eff && eff.onMove) eff.onMove(mouse);
+    }
   }
   addEventListener('mousemove', onMove);
   addEventListener('touchmove', onMove, {passive:true});
-  addEventListener('mousedown', e=>{ mouse.down=true; if(current && current.onDown) current.onDown(mouse); });
+  addEventListener('mousedown', e=>{
+    mouse.down=true;
+    for(let s=0;s<slots.length;s++){
+      const eff = slots[s];
+      if(eff && eff.onDown) eff.onDown(mouse);
+    }
+  });
   addEventListener('mouseup',   ()=>{ mouse.down=false; });
   addEventListener('mouseleave',()=>{ mouse.inside=false; });
   addEventListener('mouseenter',()=>{ mouse.inside=true;  });
@@ -64,20 +73,35 @@
   // -------- Registry --------
   const effects = [];
   const effectsById = {};
-  let current = null;
+  // Three simultaneous effect slots. slots[0] = primary, slots[1..2] = extras.
+  const slots = [null, null, null];
 
   function register(eff){
     effects.push(eff);
     effectsById[eff.id] = eff;
   }
 
-  function setEffect(id){
-    current = effectsById[id] || current;
-    if(!current) return;
-    particles.length = 0;
-    const nameEl = document.getElementById('effect-name');
-    if(nameEl) nameEl.textContent = current.name.toUpperCase();
-    if(current.init) current.init();
+  function nameElForSlot(slot){
+    const id = slot === 0 ? 'effect-name' : `effect-name-${slot+1}`;
+    return document.getElementById(id);
+  }
+
+  function setEffect(id, slot){
+    slot = slot|0;
+    if(id == null){
+      slots[slot] = null;
+      const nameEl = nameElForSlot(slot);
+      if(nameEl) nameEl.textContent = '—';
+      return;
+    }
+    const eff = effectsById[id];
+    if(!eff) return;
+    slots[slot] = eff;
+    // Only the primary slot clears particles on switch (legacy behavior).
+    if(slot === 0) particles.length = 0;
+    const nameEl = nameElForSlot(slot);
+    if(nameEl) nameEl.textContent = eff.name.toUpperCase();
+    if(eff.init) eff.init();
   }
 
   // -------- Render helpers --------
@@ -192,8 +216,13 @@
       return;
     }
 
-    // Background fade per-effect controlled trail
-    const fade = (current && current.fade != null) ? current.fade : 0.22;
+    // Background fade per-effect controlled trail. With two effects active,
+    // use the smaller (gentler) fade so neither trail gets clipped early.
+    let fade = 0.22;
+    for(let s=0;s<slots.length;s++){
+      const eff = slots[s];
+      if(eff && eff.fade != null && eff.fade < fade) fade = eff.fade;
+    }
     if(window.__transparent){
       // Fade existing pixels toward full transparency so the desktop shows through.
       ctx.globalCompositeOperation = 'destination-out';
@@ -205,7 +234,10 @@
     ctx.fillRect(0,0,innerWidth,innerHeight);
     ctx.globalCompositeOperation = 'source-over';
 
-    if(current && current.onFrame) current.onFrame(dt);
+    for(let s=0;s<slots.length;s++){
+      const eff = slots[s];
+      if(eff && eff.onFrame) eff.onFrame(dt);
+    }
 
     for(let i = particles.length - 1; i >= 0; i--){
       const p = particles[i];
@@ -248,6 +280,7 @@
   window.Engine = {
     ctx, canvas, mouse, particles, spawn,
     register, setEffect,
+    slots,
     effects, effectsById,
     R, U,
     clear(){ particles.length = 0; },

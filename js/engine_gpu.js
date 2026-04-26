@@ -163,15 +163,29 @@
     mouse.dx = mouse.x - mouse.px; mouse.dy = mouse.y - mouse.py;
     mouse.speed = Math.hypot(mouse.dx, mouse.dy);
     mouse.angle = Math.atan2(mouse.dy, mouse.dx);
-    if(current && current.onMove) current.onMove(mouse);
+    for(let s=0;s<slots.length;s++){
+      const eff = slots[s];
+      if(eff && eff.onMove) eff.onMove(mouse);
+    }
   }
   addEventListener('mousemove', onMove);
   addEventListener('touchmove', onMove, {passive:true});
-  addEventListener('mousedown', ()=>{ mouse.down=true; if(current && current.onDown) current.onDown(mouse); });
+  addEventListener('mousedown', ()=>{
+    mouse.down=true;
+    for(let s=0;s<slots.length;s++){
+      const eff = slots[s];
+      if(eff && eff.onDown) eff.onDown(mouse);
+    }
+  });
   addEventListener('mouseup',   ()=>{ mouse.down=false; });
   addEventListener('mouseleave',()=>{ mouse.inside=false; });
   addEventListener('mouseenter',()=>{ mouse.inside=true; });
   addEventListener('resize', resize);
+  // Size the stroke canvas immediately — without this it sits at the default
+  // 300x150 buffer until the first resize event fires, and Canvas-2D effects
+  // (e.g. Laser Lattice) draw via Engine.ctx into a tiny region that CSS
+  // then stretches across the screen.
+  resize();
 
   // -------- particle system --------
   const particles = [];
@@ -280,18 +294,28 @@
   // -------- registry --------
   const effects = [];
   const effectsById = {};
-  let current = null;
+  // Three simultaneous effect slots. slots[0] = primary, slots[1..2] = extras.
+  const slots = [null, null, null];
 
   function register(eff){ effects.push(eff); effectsById[eff.id] = eff; }
 
-  function setEffect(id){
-    current = effectsById[id] || current;
-    if(!current) return;
-    for(const p of particles) detachDisplay(p);
-    particles.length = 0;
+  function setEffect(id, slot){
+    slot = slot|0;
+    if(id == null){
+      slots[slot] = null;
+      return;
+    }
+    const eff = effectsById[id];
+    if(!eff) return;
+    slots[slot] = eff;
+    // Only the primary slot wipes existing particles on switch (legacy behavior).
+    if(slot === 0){
+      for(const p of particles) detachDisplay(p);
+      particles.length = 0;
+    }
     const nameEl = document.getElementById('effect-name');
-    if(nameEl) nameEl.textContent = current.name.toUpperCase();
-    if(current.init) current.init();
+    if(nameEl && slot === 0) nameEl.textContent = eff.name.toUpperCase();
+    if(eff.init) eff.init();
   }
 
   // -------- utils --------
@@ -317,8 +341,13 @@
 
     if(window.__paused) return;
 
-    // Fade previous frame (motion-blur trail)
-    const fade = (current && current.fade != null) ? current.fade : 0.22;
+    // Fade previous frame (motion-blur trail). With multiple effects active,
+    // use the smallest fade so the gentlest trail wins (trails persist longer).
+    let fade = 0.22;
+    for(let s=0;s<slots.length;s++){
+      const eff = slots[s];
+      if(eff && eff.fade != null && eff.fade < fade) fade = eff.fade;
+    }
     fadeRect.clear();
     if(window.__transparent){
       fadeRect.blendMode = PIXI.BLEND_MODES.ERASE;
@@ -333,7 +362,10 @@
     // Clear CPU stroke layer (effects' onFrame may repaint it this tick)
     ctx.clearRect(0, 0, W, H);
 
-    if(current && current.onFrame) current.onFrame(dt);
+    for(let s=0;s<slots.length;s++){
+      const eff = slots[s];
+      if(eff && eff.onFrame) eff.onFrame(dt);
+    }
 
     for(let i = particles.length - 1; i >= 0; i--){
       const p = particles[i];
@@ -373,6 +405,7 @@
   window.Engine = {
     ctx, canvas: strokeCanvas, mouse, particles, spawn,
     register, setEffect,
+    slots,
     effects, effectsById, R, U,
     clear(){
       for(const p of particles) detachDisplay(p);

@@ -22,9 +22,19 @@
       <span class="np-label">ACTIVE EFFECT</span>
       <span id="effect-name" class="np-name">—</span>
     </div>
+    <div class="now-playing">
+      <span class="np-label">2ND EFFECT</span>
+      <span id="effect-name-2" class="np-name">—</span>
+    </div>
+    <div class="now-playing">
+      <span class="np-label">3RD EFFECT</span>
+      <span id="effect-name-3" class="np-name">—</span>
+    </div>
     <div class="hud-actions">
       <button id="btn-clear" class="ghost">CLEAR</button>
       <button id="btn-toggle" class="ghost">HIDE UI</button>
+      <button id="btn-toggle-2" class="ghost">2ND PANEL</button>
+      <button id="btn-toggle-3" class="ghost">3RD PANEL</button>
     </div>
   </header>
 
@@ -35,6 +45,26 @@
       <input id="search" type="text" placeholder="Filter effects…" />
     </div>
     <div id="categories" class="categories"></div>
+  </aside>
+
+  <aside id="panel-2" class="panel panel-2 hidden">
+    <div class="panel-header">
+      <h2>2ND EFFECT</h2>
+      <p class="muted">Layer a second trail on top of the first.</p>
+      <input id="search-2" type="text" placeholder="Filter effects…" />
+      <button id="btn-off-2" class="ghost" style="margin-top:8px;width:100%">TURN 2ND OFF</button>
+    </div>
+    <div id="categories-2" class="categories"></div>
+  </aside>
+
+  <aside id="panel-3" class="panel panel-3 hidden">
+    <div class="panel-header">
+      <h2>3RD EFFECT</h2>
+      <p class="muted">Stack a third trail on top.</p>
+      <input id="search-3" type="text" placeholder="Filter effects…" />
+      <button id="btn-off-3" class="ghost" style="margin-top:8px;width:100%">TURN 3RD OFF</button>
+    </div>
+    <div id="categories-3" class="categories"></div>
   </aside>
 
   <footer class="hud bottom">

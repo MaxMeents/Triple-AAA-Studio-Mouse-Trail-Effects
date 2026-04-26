@@ -92,12 +92,15 @@
     clickEngine.app.ticker.stop(); // start paused; enable below
 
     let state = {
-      trailEnabled: true, clickEnabled: true, trailId: null, clickId: null,
+      trailEnabled: true, clickEnabled: true,
+      trailId: null, trailId2: null, trailId3: null,
+      trailEnabled2: false, trailEnabled3: false,
+      clickId: null,
       trailCustom: { intensity:1, size:1, speed:1, life:1, alpha:1 },
       clickCustom: { intensity:1, size:1, speed:1, life:1, alpha:1 }
     };
     let activeClick = null;
-    let activeTrailId = null;
+    let activeTrailIds = [null, null, null];
 
     // The trail spawn wrapper was already installed before the effect files
     // loaded — we just need to feed it the current values via window.__trailCustom.
@@ -135,10 +138,19 @@
       if (state.clickEnabled) clickEngine.app.ticker.start();
       else                    { clickEngine.app.ticker.stop(); clickEngine.clear(); }
 
-      // Effect selection
-      if (state.trailId && state.trailId !== activeTrailId) {
-        activeTrailId = state.trailId;
-        Engine.setEffect(state.trailId);
+      // Effect selection — three independent slots.
+      // Slot 0 always reflects state.trailId (the canonical selection).
+      // Slots 1 and 2 are turned on/off via state.trailEnabled{2,3}.
+      const desired = [
+        state.trailId,
+        state.trailEnabled2 ? state.trailId2 : null,
+        state.trailEnabled3 ? state.trailId3 : null
+      ];
+      for (let s = 0; s < 3; s++) {
+        if (desired[s] !== activeTrailIds[s]) {
+          activeTrailIds[s] = desired[s];
+          Engine.setEffect(desired[s], s);
+        }
       }
       if (state.clickId) {
         const eff = FX_EFFECTS.find(e => String(e.id) === String(state.clickId));
